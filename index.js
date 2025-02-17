@@ -4,6 +4,10 @@ const puppeteer = require("puppeteer");
 const app = express();
 const port = process.env.PORT || 8080;
 
+app.get("/hello", (req, res) => {
+  res.send("Hello, World!");
+});
+
 app.get("/crawl", async (req, res) => {
   try {
     // last_released_at の固定値を設定
