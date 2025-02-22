@@ -9,7 +9,6 @@ env:
   GOOGLE_PROJECT_ID: ${{ secrets.GOOGLE_PROJECT_ID }}
   REGION: asia-northeast1
   ENV: production
-  JOB_NAME: node-gcloud-release-crawler
 
 jobs:
   deploy:
@@ -44,10 +43,10 @@ jobs:
           docker build --cache-from ${IMAGE} -t ${IMAGE} .
           docker push ${IMAGE}
 
-      - name: Deploy Cloud Run Job
+      - name: Deploy to Cloud Run
         run: |
-          gcloud run jobs deploy ${{ env.JOB_NAME }} \
-            --image ${{ env.REGION }}-docker.pkg.dev/${{ env.GOOGLE_PROJECT_ID }}/node-gcloud-release-crawler/node-gcloud-release-crawler:latest \
+          gcloud run deploy node-gcloud-release-crawler \
             --region ${{ env.REGION }} \
-            --task-timeout 600 \
-            --max-retries 3
+            --image ${{ env.REGION }}-docker.pkg.dev/${{ env.GOOGLE_PROJECT_ID }}/node-gcloud-release-crawler/node-gcloud-release-crawler:latest \
+            --platform managed \
+            --allow-unauthenticated
