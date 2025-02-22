@@ -1,23 +1,12 @@
 require("dotenv").config();
-const express = require("express");
 const { BigQuery } = require("@google-cloud/bigquery");
-const cors = require("cors");
 
-const app = express();
 const bigquery = new BigQuery();
 
-app.use(cors());
-app.use(express.json());
-
-app.get("/release-notes", async (req, res) => {
+async function fetchReleaseNotes() {
   try {
-    const lastPublishedAt = req.query.last_published_at;
-
-    if (!lastPublishedAt) {
-      return res
-        .status(400)
-        .json({ error: "Missing 'last_published_at' parameter" });
-    }
+    // `last_published_at` を環境変数から取得（Cloud Scheduler から渡せる）
+    const lastPublishedAt = process.env.LAST_PUBLISHED_AT || "2025-02-01";
 
     console.log(`Fetching release notes since ${lastPublishedAt}`);
 
@@ -35,16 +24,16 @@ app.get("/release-notes", async (req, res) => {
     };
 
     const [rows, job] = await bigquery.query(options);
-    console.log(`Query results: ${rows.length} rows`);
+    console.log(`Query processed: ${job.totalBytesProcessed} bytes`);
 
-    res.json({ release_notes: rows });
+    console.log("Release Notes:", JSON.stringify(rows, null, 2));
+
+    console.log("Job completed successfully.");
+    process.exit(0);
   } catch (error) {
     console.error("Error fetching release notes:", error);
-    res.status(500).json({ error: "Internal Server Error" });
+    process.exit(1);
   }
-});
+}
 
-const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+fetchReleaseNotes();

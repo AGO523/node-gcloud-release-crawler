@@ -50,5 +50,4 @@ jobs:
             --image ${{ env.REGION }}-docker.pkg.dev/${{ env.GOOGLE_PROJECT_ID }}/node-gcloud-release-crawler/node-gcloud-release-crawler:latest \
             --region ${{ env.REGION }} \
             --task-timeout 600 \
-            --max-retries 3 \
-            --service-account ${{ secrets.GOOGLE_SA_EMAIL }}
+            --max-retries 3
