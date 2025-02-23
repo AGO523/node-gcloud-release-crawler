@@ -1,27 +1,16 @@
 require("dotenv").config();
-const express = require("express");
 const { BigQuery } = require("@google-cloud/bigquery");
-const cors = require("cors");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const fetch = require("node-fetch");
 
-const app = express();
 const bigquery = new BigQuery();
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
 const MAX_ATTEMPTS = 3;
 
-app.use(cors());
-app.use(express.json());
-
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 /**
  * 指数バックオフを使用して待機する
- * @param {number} attempt - 試行回数
  */
 const exponentialBackoff = (attempt) => {
   return new Promise((resolve) =>
@@ -30,9 +19,22 @@ const exponentialBackoff = (attempt) => {
 };
 
 /**
+ * 日本時間（JST）で今日の日付を取得（YYYY-MM-DD）
+ */
+const getCurrentJSTDate = () => {
+  return new Date()
+    .toLocaleDateString("ja-JP", {
+      timeZone: "Asia/Tokyo",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    })
+    .split("/")
+    .join("-"); // "2025/02/22" → "2025-02-22"
+};
+
+/**
  * Gemini API を使用してリリースノートを翻訳＆要約
- * @param {string} description - 英語のリリースノートの説明
- * @returns {Promise<string>} - 日本語の翻訳＋要約
  */
 async function translateAndSummarize(description) {
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
@@ -41,12 +43,11 @@ async function translateAndSummarize(description) {
 
       const prompt = `次のGoogle Cloudリリースノートの内容を日本語で翻訳し、簡潔に要約してください:\n\n"${description}"`;
 
-      sleep(5000);
+      await exponentialBackoff(1);
       const result = await model.generateContent(prompt);
       return result.response.text() || "翻訳エラー: 応答がありません";
     } catch (error) {
       console.error(`Gemini API Error (Attempt ${attempt}):`, error);
-
       if (
         [429, 500, 502, 503, 504].includes(error.status) &&
         attempt < MAX_ATTEMPTS
@@ -64,8 +65,6 @@ async function translateAndSummarize(description) {
 
 /**
  * Slack にリリースノートを送信する
- * @param {string} date - リリース日
- * @param {Array} releaseNotes - 通知するリリースノートのリスト
  */
 async function sendToSlack(date, releaseNotes) {
   for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
@@ -127,17 +126,11 @@ async function sendToSlack(date, releaseNotes) {
 }
 
 /**
- * リリースノートを取得＆Slackに通知
+ * Cloud Run Job 実行時にリリースノートを取得・翻訳・Slack 送信
  */
-app.get("/release-notes", async (req, res) => {
+async function fetchReleaseNotes() {
   try {
-    const lastPublishedAt = req.query.last_published_at;
-    if (!lastPublishedAt) {
-      return res
-        .status(400)
-        .json({ error: "Missing 'last_published_at' parameter" });
-    }
-
+    const lastPublishedAt = getCurrentJSTDate();
     console.log(`Fetching release notes since ${lastPublishedAt}`);
 
     const query = `
@@ -165,14 +158,11 @@ app.get("/release-notes", async (req, res) => {
 
     await sendToSlack(lastPublishedAt, translatedNotes);
 
-    res.json({ release_notes: translatedNotes });
+    console.log("Cloud Run Job completed successfully.");
   } catch (error) {
     console.error("Error fetching release notes:", error);
-    res.status(500).json({ error: "Internal Server Error" });
   }
-});
+}
 
-const PORT = process.env.PORT || 8080;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+// Cloud Run Job 実行時にこの関数を呼び出す
+fetchReleaseNotes();

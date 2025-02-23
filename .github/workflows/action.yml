@@ -51,7 +51,7 @@ jobs:
             --region ${{ env.REGION }} \
             --image ${{ env.REGION }}-docker.pkg.dev/${{ env.GOOGLE_PROJECT_ID }}/node-gcloud-release-crawler/node-gcloud-release-crawler:latest \
             --task-timeout=900s \
-            --max-retries=3 \
+            --max-retries=2 \
             --set-secrets="GEMINI_API_KEY=gemini-api-key:latest" \
             --set-secrets="SLACK_TOKEN=slack-token:latest" \
             --set-secrets="SLACK_CHANNEL_ID=slack-channel-id:latest" \
