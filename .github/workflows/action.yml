@@ -50,7 +50,10 @@ jobs:
             --region ${{ env.REGION }} \
             --image ${{ env.REGION }}-docker.pkg.dev/${{ env.GOOGLE_PROJECT_ID }}/node-gcloud-release-crawler/node-gcloud-release-crawler:latest \
             --platform managed \
-            --allow-unauthenticated
+            --allow-unauthenticated \
+            --set-secrets="GEMINI_API_KEY=gemini-api-key:latest" \
+            --set-secrets="SLACK_TOKEN=slack-token:latest" \
+            --set-secrets="SLACK_CHANNEL_ID=slack-channel-id:latest"
 
       - name: Allow public access to Cloud Run
         run: |
