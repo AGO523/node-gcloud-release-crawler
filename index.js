@@ -19,18 +19,15 @@ const exponentialBackoff = (attempt) => {
 };
 
 /**
- * 日本時間（JST）で今日の日付を取得（YYYY-MM-DD）
+ * 日本時間（JST）で1日前の日付を取得（YYYY-MM-DD）
  */
-const getCurrentJSTDate = () => {
-  return new Date()
-    .toLocaleDateString("ja-JP", {
-      timeZone: "Asia/Tokyo",
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    })
-    .split("/")
-    .join("-"); // "2025/02/22" → "2025-02-22"
+const getPreviousJSTDate = () => {
+  const jstNow = new Date(
+    new Date().toLocaleString("en-US", { timeZone: "Asia/Tokyo" })
+  );
+  jstNow.setDate(jstNow.getDate() - 1); // 1日前にする
+
+  return jstNow.toISOString().split("T")[0];
 };
 
 /**
@@ -67,61 +64,53 @@ async function translateAndSummarize(description) {
  * Slack にリリースノートを送信する
  */
 async function sendToSlack(date, releaseNotes) {
-  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-    try {
-      if (!process.env.SLACK_TOKEN || !process.env.SLACK_CHANNEL_ID) {
-        console.error(
-          "SLACK_TOKEN または SLACK_CHANNEL_ID が設定されていません"
-        );
-        return;
-      }
+  try {
+    if (!process.env.SLACK_TOKEN || !process.env.SLACK_CHANNEL_ID) {
+      console.error("SLACK_TOKEN または SLACK_CHANNEL_ID が設定されていません");
+      return;
+    }
 
-      const releaseNotesLink = `https://cloud.google.com/release-notes#${date.replace(
-        /-/g,
-        "_"
-      )}`;
+    const releaseNotesLink = `https://cloud.google.com/release-notes#${date.replace(
+      /-/g,
+      "_"
+    )}`;
 
+    let message;
+
+    if (releaseNotes.length === 0) {
+      message = `📢 *${date} のリリースノート*\n本日の更新はありません。`;
+    } else {
       const formattedNotes = releaseNotes
         .map((note) => {
           return `*product_name:* ${note.product_name}\n*release_note_type:* ${note.release_note_type}\n*description:*\n${note.translated_description}`;
         })
         .join("\n\n");
 
-      const payload = {
-        channel: process.env.SLACK_CHANNEL_ID,
-        text: `📢 *${date} のリリースノート*\n<${releaseNotesLink}|[リリースノート詳細]>\n\n${formattedNotes}`,
-      };
-
-      const response = await fetch("https://slack.com/api/chat.postMessage", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${process.env.SLACK_TOKEN}`,
-        },
-        body: JSON.stringify(payload),
-      });
-
-      const jsonResponse = await response.json();
-      if (!jsonResponse.ok) {
-        throw new Error(`Slack API エラー: ${jsonResponse.error}`);
-      }
-
-      console.log("Slack への通知が完了しました");
-      return;
-    } catch (error) {
-      console.error(`Slack API Error (Attempt ${attempt}):`, error);
-
-      if (
-        [429, 500, 502, 503, 504].includes(error.status) &&
-        attempt < MAX_ATTEMPTS
-      ) {
-        console.log(`Retrying Slack API... (Attempt ${attempt})`);
-        await exponentialBackoff(attempt);
-      } else {
-        console.error("Slack API 送信エラー: 最大リトライ回数に達しました");
-        return;
-      }
+      message = `📢 *${date} のリリースノート*\n<${releaseNotesLink}|[リリースノート詳細]>\n\n${formattedNotes}`;
     }
+
+    const payload = {
+      channel: process.env.SLACK_CHANNEL_ID,
+      text: message,
+    };
+
+    const response = await fetch("https://slack.com/api/chat.postMessage", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${process.env.SLACK_TOKEN}`,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const jsonResponse = await response.json();
+    if (!jsonResponse.ok) {
+      throw new Error(`Slack API エラー: ${jsonResponse.error}`);
+    }
+
+    console.log("Slack への通知が完了しました");
+  } catch (error) {
+    console.error("Slack API 送信エラー:", error);
   }
 }
 
@@ -130,7 +119,7 @@ async function sendToSlack(date, releaseNotes) {
  */
 async function fetchReleaseNotes() {
   try {
-    const lastPublishedAt = getCurrentJSTDate();
+    const lastPublishedAt = getPreviousJSTDate();
     console.log(`Fetching release notes since ${lastPublishedAt}`);
 
     const query = `
