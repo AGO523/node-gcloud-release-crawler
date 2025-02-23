@@ -46,12 +46,22 @@ jobs:
 
       - name: Deploy to Cloud Run Job
         run: |
-          gcloud run services delete ${{ env.SERVICE_NAME }} --region ${{ env.REGION }} --quiet || true
-          gcloud run jobs create ${{ env.SERVICE_NAME }} \
+          gcloud run jobs update ${{ env.SERVICE_NAME }} \
+            --project ${{ env.GOOGLE_PROJECT_ID }} \
             --region ${{ env.REGION }} \
             --image ${{ env.REGION }}-docker.pkg.dev/${{ env.GOOGLE_PROJECT_ID }}/node-gcloud-release-crawler/node-gcloud-release-crawler:latest \
             --platform managed \
-            --allow-unauthenticated \
+            --task-timeout=900s \
+            --max-retries=3 \
             --set-secrets="GEMINI_API_KEY=gemini-api-key:latest" \
             --set-secrets="SLACK_TOKEN=slack-token:latest" \
-            --set-secrets="SLACK_CHANNEL_ID=slack-channel-id:latest"
+            --set-secrets="SLACK_CHANNEL_ID=slack-channel-id:latest" \
+            --set-env-vars="REGION=${{ env.REGION }},ENV=${{ env.ENV }}" \
+            --command="node" --args="index.js"
+
+      - name: Allow public access to Cloud Run Job
+        run: |
+          gcloud run jobs add-iam-policy-binding ${{ env.SERVICE_NAME }} \
+            --member="allUsers" \
+            --role="roles/run.invoker" \
+            --region=${{ env.REGION }}
