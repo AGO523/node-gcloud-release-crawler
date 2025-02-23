@@ -50,7 +50,6 @@ jobs:
             --project ${{ env.GOOGLE_PROJECT_ID }} \
             --region ${{ env.REGION }} \
             --image ${{ env.REGION }}-docker.pkg.dev/${{ env.GOOGLE_PROJECT_ID }}/node-gcloud-release-crawler/node-gcloud-release-crawler:latest \
-            --platform managed \
             --task-timeout=900s \
             --max-retries=3 \
             --set-secrets="GEMINI_API_KEY=gemini-api-key:latest" \
