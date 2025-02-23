@@ -25,7 +25,7 @@ const getPreviousJSTDate = () => {
   const jstNow = new Date(
     new Date().toLocaleString("en-US", { timeZone: "Asia/Tokyo" })
   );
-  jstNow.setDate(jstNow.getDate() - 1); // 1日前にする
+  jstNow.setDate(jstNow.getDate() - 4); // 4日前の日付を取得
 
   return jstNow.toISOString().split("T")[0];
 };
