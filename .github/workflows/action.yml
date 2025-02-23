@@ -44,9 +44,10 @@ jobs:
           docker build --cache-from ${IMAGE} -t ${IMAGE} .
           docker push ${IMAGE}
 
-      - name: Deploy to Cloud Run
+      - name: Deploy to Cloud Run Job
         run: |
-          gcloud run deploy ${{ env.SERVICE_NAME }} \
+          gcloud run services delete ${{ env.SERVICE_NAME }} --region ${{ env.REGION }} --quiet || true
+          gcloud run jobs create ${{ env.SERVICE_NAME }} \
             --region ${{ env.REGION }} \
             --image ${{ env.REGION }}-docker.pkg.dev/${{ env.GOOGLE_PROJECT_ID }}/node-gcloud-release-crawler/node-gcloud-release-crawler:latest \
             --platform managed \
@@ -54,10 +55,3 @@ jobs:
             --set-secrets="GEMINI_API_KEY=gemini-api-key:latest" \
             --set-secrets="SLACK_TOKEN=slack-token:latest" \
             --set-secrets="SLACK_CHANNEL_ID=slack-channel-id:latest"
-
-      - name: Allow public access to Cloud Run
-        run: |
-          gcloud run services add-iam-policy-binding ${{ env.SERVICE_NAME }} \
-            --member="allUsers" \
-            --role="roles/run.invoker" \
-            --region=${{ env.REGION }}
