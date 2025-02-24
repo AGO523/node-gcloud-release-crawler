@@ -125,7 +125,7 @@ async function fetchReleaseNotes() {
     const query = `
       SELECT product_name, description, release_note_type, published_at
       FROM \`bigquery-public-data.google_cloud_release_notes.release_notes\`
-      WHERE DATE(published_at) > @lastPublishedAt
+      WHERE DATE(published_at) = @lastPublishedAt
       ORDER BY published_at DESC
     `;
 
